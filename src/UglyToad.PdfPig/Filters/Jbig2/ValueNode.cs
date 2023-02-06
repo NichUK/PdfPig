@@ -33,7 +33,7 @@
             }
         }
 
-        internal static string bitPattern(int v, int len)
+        internal static string BitPattern(int v, int len)
         {
             var result = new char[len];
             for (int i = 1; i <= len; i++)
