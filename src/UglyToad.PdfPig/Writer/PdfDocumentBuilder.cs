@@ -19,6 +19,7 @@ namespace UglyToad.PdfPig.Writer
     using Tokens;
 
     using Util.JetBrains.Annotations;
+    using System.Xml.Linq;
 
     /// <summary>
     /// Provides methods to construct new PDF documents.
@@ -70,6 +71,15 @@ namespace UglyToad.PdfPig.Writer
         /// The fonts currently available in the document builder added via <see cref="AddTrueTypeFont"/> or <see cref="AddStandard14Font"/>. Keyed by id for internal purposes.
         /// </summary>
         internal IReadOnlyDictionary<Guid, FontStored> Fonts => fonts;
+
+        /// <summary>
+        /// This func will be called during document completion after default metadata has been created.
+        /// User has complete access to the metadata document which conforms to Adobe XMP Specification.
+        /// <seealso href="https://github.com/adobe/XMP-Toolkit-SDK/blob/main/docs/XMPSpecificationPart1.pdf"/>
+        /// This function SHOULD BE USED WITH CARE as incorrect usage will render PDF unreadable.
+        /// NOTE: <see cref="ArchiveStandard"/> MUST be set to anything other than NONE to generate metadata.
+        /// </summary>
+        public Func<XDocument, XDocument> MetadataEditFunc { get; set; } = null;
 
         /// <summary>
         /// Creates a document builder keeping resources in memory.
@@ -712,7 +722,7 @@ namespace UglyToad.PdfPig.Writer
             {
                 Func<IToken, IndirectReferenceToken> writerFunc = x => context.WriteToken(x);
 
-                PdfABaselineRuleBuilder.Obey(catalogDictionary, writerFunc, DocumentInformation, ArchiveStandard);
+                PdfABaselineRuleBuilder.Obey(catalogDictionary, writerFunc, DocumentInformation, ArchiveStandard, MetadataEditFunc);
 
                 switch (ArchiveStandard)
                 {

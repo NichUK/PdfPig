@@ -15,6 +15,7 @@
     using UglyToad.PdfPig.Graphics.Operations.InlineImages;
     using UglyToad.PdfPig.Outline;
     using UglyToad.PdfPig.Outline.Destinations;
+    using System.Xml.Linq;
 
     public class PdfDocumentBuilderTests
     {
@@ -667,6 +668,71 @@
                 Assert.True(pdf.TryGetXmpMetadata(out var xmp));
 
                 Assert.NotNull(xmp.GetXDocument());
+            }
+        }
+
+        [Theory]
+        [InlineData(PdfAStandard.A1B)]
+        [InlineData(PdfAStandard.A1A)]
+        [InlineData(PdfAStandard.A2B)]
+        [InlineData(PdfAStandard.A2A)]
+        [InlineData(PdfAStandard.A3B)]
+        [InlineData(PdfAStandard.A3A)]
+        public void CanGeneratePdfAFileWithCustomMetaData(PdfAStandard standard)
+        {
+            XNamespace x = "adobe:ns:meta/";
+            XNamespace rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+            XNamespace test = "http://www.test.com/xspec/1.0";
+
+            var builder = new PdfDocumentBuilder
+            {
+                ArchiveStandard = standard,
+                MetadataEditFunc = (xdoc) =>
+                {
+                    var xmpmetaElement = xdoc.Element(x + "xmpmeta");
+                    var rdfElement = xmpmetaElement.Element(rdf + "RDF");
+                    var descriptions = rdfElement.Elements(rdf + "Description");
+                    var testDescription = new XElement(rdf + "Description",
+                        new XAttribute(rdf + "about", "testing"),
+                        new XAttribute(XNamespace.Xmlns + "test", "http://www.test.com/xspec/1.0"),
+                        new XElement(test + "testelement", "Is Present")
+                        );
+                    rdfElement.Add(testDescription);
+                    return xdoc;
+                }
+            };
+
+            var page = builder.AddPage(PageSize.A4);
+
+            var imgBytes = File.ReadAllBytes(IntegrationHelpers.GetDocumentPath("smile-250-by-160.jpg", false));
+            page.AddJpeg(imgBytes, new PdfRectangle(50, 70, 150, 130));
+
+            var font = builder.AddTrueTypeFont(TrueTypeTestHelper.GetFileBytes("Roboto-Regular.ttf"));
+
+            page.AddText($"Howdy PDF/{standard}!", 10, new PdfPoint(25, 700), font);
+
+            var bytes = builder.Build();
+
+            WriteFile(nameof(CanGeneratePdfAFile) + standard, bytes);
+
+            using (var pdf = PdfDocument.Open(bytes, ParsingOptions.LenientParsingOff))
+            {
+                Assert.Equal(1, pdf.NumberOfPages);
+
+                Assert.True(pdf.TryGetXmpMetadata(out var xmp));
+
+                var xmpDocument = xmp.GetXDocument();
+                Assert.NotNull(xmpDocument);
+
+                var xmpmetaElement = xmpDocument.Element(x + "xmpmeta");
+                var rdfElement = xmpmetaElement.Element(rdf + "RDF");
+                var descriptions = rdfElement.Elements(rdf + "Description").ToList();
+                Assert.Equal(3, descriptions.Count());
+
+                var testDescription = descriptions[2];
+                var testElement = testDescription.Elements().First();
+                Assert.Equal(test + "testelement", testElement.Name);
+                Assert.Equal("Is Present", testElement.Value);
             }
         }
 

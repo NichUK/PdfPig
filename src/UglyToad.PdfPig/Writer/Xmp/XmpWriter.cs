@@ -37,7 +37,7 @@ namespace UglyToad.PdfPig.Writer.Xmp
         private const string PdfAIdentificationExtensionNamespace = "http://www.aiim.org/pdfa/ns/id/";
         
         public static StreamToken GenerateXmpStream(PdfDocumentBuilder.DocumentInformationBuilder builder, decimal version,
-            PdfAStandard standard)
+            PdfAStandard standard, Func<XDocument, XDocument> metadataEditFunc = null)
         {
             XNamespace xmpMeta = XmpMetaNamespace;
             XNamespace rdf = RdfNamespace;
@@ -83,6 +83,11 @@ namespace UglyToad.PdfPig.Writer.Xmp
                     )
                 )
             );
+
+            if (metadataEditFunc != null)
+            {
+                document = metadataEditFunc.Invoke(document);
+            }
 
             var xml = document.ToString(SaveOptions.None).Replace("\r\n", "\n");
             xml = $"<?xpacket begin=\"\ufeff\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n{xml}\n<?xpacket end=\"r\"?>";
